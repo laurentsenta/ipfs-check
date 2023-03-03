@@ -8,9 +8,14 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/gavv/httpexpect/v2"
+	"github.com/google/uuid"
+	"github.com/ipfs/go-cid"
+	mh "github.com/multiformats/go-multihash"
 )
 
-const myCID = "bafybeiemxf5abjwjbikoz4mc3a3dla6ual3jsgpdr4cjr3oz3evfyavhwq"
+const myCID = "QmPZ9gcCEpqKTo6aq61g2nXGUhM4iCL3ewB6LDXZCtioEB" // CID from https://docs.ipfs.tech/how-to/command-line-quick-start/#initialize-the-repository
 const someLibp2pAddr = "/p2p/12D3KooWNQ4EzGXzP2ben53ZWriXfPZMahfGFt6M3vw95cZhjCEb"
 
 func setup(t *testing.T) func() {
@@ -54,4 +59,65 @@ func TestRootAPIReturn200AndSomePayload(t *testing.T) {
 	if sb == "" {
 		t.Fatal("empty response")
 	}
+}
+
+func TestFindCIDReturns200AndSomeProviders(t *testing.T) {
+	// teardown := setup(t)
+	// defer teardown()
+
+	e := httpexpect.Default(t, "http://localhost:3333")
+
+	r := e.GET("/find").
+		WithQuery("cid", myCID).
+		Expect().
+		Status(http.StatusOK)
+
+	r.Header("Access-Control-Allow-Origin").IsEqual("*")
+
+	r.JSON().Object().
+		ContainsKey("providers").
+		NotContainsKey("error_find_providers").
+		NotContainsKey("error_parse_cid")
+}
+
+func TestFindRandomCIDReturns200AndAProvidersError(t *testing.T) {
+	e := httpexpect.Default(t, "http://localhost:3333")
+
+	c, err := RandomCID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := e.GET("/find").
+		WithQuery("cid", c.String()).
+		Expect().
+		Status(http.StatusOK)
+
+	r.Header("Access-Control-Allow-Origin").IsEqual("*")
+
+	r.JSON().Object().
+		NotContainsKey("providers").
+		ContainsKey("error_find_providers").
+		NotContainsKey("error_parse_cid")
+}
+
+// https://github.com/ipfs/go-cid#creating-a-cid-from-scratch
+func IdentityCID(s string) (cid.Cid, error) {
+	pref := cid.Prefix{
+		Version:  1,
+		Codec:    uint64(mh.IDENTITY),
+		MhType:   mh.SHA2_256,
+		MhLength: -1,
+	}
+
+	c, err := pref.Sum([]byte(s))
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	return c, err
+}
+
+func RandomCID() (cid.Cid, error) {
+	return IdentityCID(uuid.New().String())
 }

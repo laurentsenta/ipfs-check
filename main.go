@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -25,9 +26,10 @@ func main() {
 
 	fmt.Printf("listening on %v\n", l.Addr())
 
-	daemon.MustStart()
-
-	fmt.Println("Ready to start serving")
+	go func() {
+		daemon.MustStart()
+		fmt.Println("Daemon is fully started and ready to serve requests.")
+	}()
 
 	/*
 		1. Is the peer findable in the DHT?
@@ -44,8 +46,38 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/find", func(writer http.ResponseWriter, request *http.Request) {
+		out, err := daemon.runFindContent(request.Context(), request)
+		outputJSONOrErr(writer, out, err)
+	})
+
 	err = http.Serve(l, nil)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func outputJSONOrErr(writer http.ResponseWriter, out interface{}, err error) {
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
+
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		_, _ = writer.Write([]byte(err.Error()))
+		return
+	}
+
+	outputJSON, err := json.Marshal(out)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		_, _ = writer.Write([]byte(err.Error()))
+		return
+	}
+
+	writer.Header().Add("Content-Type", "application/json")
+	_, err = writer.Write(outputJSON)
+
+	if err != nil {
+		fmt.Printf("could not return data over HTTP: %v\n", err.Error())
 	}
 }
