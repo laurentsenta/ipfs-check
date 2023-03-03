@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
+	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
@@ -23,6 +23,8 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
 )
+
+var log = logging.Logger("ipfs-check-daemon")
 
 type daemon struct {
 	h            host.Host
@@ -104,15 +106,23 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 		return err
 	}
 
+	log.Infoln("Checking", mastr, cidstr)
+
 	ctx := context.Background()
 	out := &Output{}
 
 	connectionFailed := false
 
+	log.Infoln("Searching CID in DHT")
 	out.CidInDHT = providerRecordInDHT(ctx, d.dht, c, ai.ID)
 
+	log.Infoln("Done searching CID in DHT: %s", out.CidInDHT)
+
+	log.Infoln("Searching peers in DHT")
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
+
+	log.Infoln("Done searching peers in DHT: %s", addrMap)
 
 	// If peerID given, but no addresses check the DHT
 	if len(ai.Addrs) == 0 {
@@ -123,7 +133,7 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 		for a := range addrMap {
 			ma, err := multiaddr.NewMultiaddr(a)
 			if err != nil {
-				log.Println(fmt.Errorf("error parsing multiaddr %s: %w", a, err))
+				log.Errorln("error parsing multiaddr %s: %w", a, err)
 				continue
 			}
 			ai.Addrs = append(ai.Addrs, ma)
