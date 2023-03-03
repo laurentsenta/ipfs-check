@@ -61,6 +61,12 @@ func outputJSONOrErr(writer http.ResponseWriter, out interface{}, err error) {
 	writer.Header().Add("Access-Control-Allow-Origin", "*")
 
 	if err != nil {
+		if httpErr, ok := err.(HTTPError); ok {
+			writer.WriteHeader(httpErr.Code)
+			_, _ = writer.Write([]byte(httpErr.Message))
+			return
+		}
+
 		writer.WriteHeader(http.StatusInternalServerError)
 		_, _ = writer.Write([]byte(err.Error()))
 		return

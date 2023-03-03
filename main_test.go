@@ -101,6 +101,38 @@ func TestFindRandomCIDReturns200AndAProvidersError(t *testing.T) {
 		NotContainsKey("error_parse_cid")
 }
 
+func TestFindInvalidCIDReturns200AndACIDError(t *testing.T) {
+	e := httpexpect.Default(t, "http://localhost:3333")
+
+	c, err := RandomCID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := e.GET("/find").
+		WithQuery("cid", c.String() + "woopsie").
+		Expect().
+		Status(http.StatusOK)
+
+	r.Header("Access-Control-Allow-Origin").IsEqual("*")
+
+	r.JSON().Object().
+		NotContainsKey("providers").
+		NotContainsKey("error_find_providers").
+		ContainsKey("error_parse_cid")
+}
+
+func TestFindWithoutCIDReturns400(t *testing.T) {
+	e := httpexpect.Default(t, "http://localhost:3333")
+
+
+	r := e.GET("/find").
+		Expect().
+		Status(http.StatusBadRequest)
+
+	r.Header("Access-Control-Allow-Origin").IsEqual("*")
+}
+
 // https://github.com/ipfs/go-cid#creating-a-cid-from-scratch
 func IdentityCID(s string) (cid.Cid, error) {
 	pref := cid.Prefix{

@@ -331,7 +331,7 @@ func (d *daemon) runFindContent(ctx context.Context, request *http.Request) (Fin
 
 	cidstr := request.URL.Query().Get("cid")
 	if cidstr == "" {
-		return out, errors.New("missing argument: cid")
+		return out, NewHTTPError(http.StatusBadRequest, "missing cid parameter")
 	}
 
 	c, err := cid.Decode(cidstr)
@@ -361,4 +361,17 @@ func (d *daemon) runFindContent(ctx context.Context, request *http.Request) (Fin
 	out.Providers = providers
 
 	return out, nil
+}
+
+type HTTPError struct {
+	Code    int
+	Message string
+}
+
+func (e HTTPError) Error() string {
+	return fmt.Sprintf("%d: %s", e.Code, e.Message)
+}
+
+func NewHTTPError(code int, message string) HTTPError {
+	return HTTPError{code, message}
 }
