@@ -1,5 +1,5 @@
 ipfs-check
-=======================
+==========
 
 > Check if you can find your content on IPFS
 
@@ -53,6 +53,17 @@ go build
 npx -y serve -l 3000 web
 # Then open http://localhost:3000?backendUrl=http://localhost:3333
 ```
+
+## Contributing
+
+### Testing
+
+We have an e2e test suite in `./e2e`: start the server, wait until it's ready,
+and use `go test ./e2e` to run it.
+
+### Debugging
+
+Use `GOLOG_LOG_LEVEL='ipfs-check-daemon=debug'` to enable debug logging for the ipfs-check stack.
 
 ## License
 

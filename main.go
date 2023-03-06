@@ -1,23 +1,17 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/aschmahmann/ipfs-check/daemon"
+	"github.com/aschmahmann/ipfs-check/utils"
 )
 
-type kademlia interface {
-	routing.Routing
-	GetClosestPeers(ctx context.Context, key string) ([]peer.ID, error)
-}
-
 func main() {
-	daemon := NewDaemon()
+	daemon := daemon.NewDaemon()
 
 	l, err := net.Listen("tcp", ":3333")
 	if err != nil {
@@ -38,7 +32,8 @@ func main() {
 		4. Does the peer respond that it has the given data over Bitswap?
 	*/
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		if err := daemon.runCheck(writer, request.RequestURI); err != nil {
+		fmt.Println("Received request: ", request.RequestURI)
+		if err := daemon.RunCheck(writer, request.RequestURI); err != nil {
 			writer.Header().Add("Access-Control-Allow-Origin", "*")
 			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = writer.Write([]byte(err.Error()))
@@ -47,7 +42,7 @@ func main() {
 	})
 
 	http.HandleFunc("/find", func(writer http.ResponseWriter, request *http.Request) {
-		out, err := daemon.runFindContent(request.Context(), request)
+		out, err := daemon.RunFindContent(request.Context(), request)
 		outputJSONOrErr(writer, out, err)
 	})
 
@@ -61,7 +56,7 @@ func outputJSONOrErr(writer http.ResponseWriter, out interface{}, err error) {
 	writer.Header().Add("Access-Control-Allow-Origin", "*")
 
 	if err != nil {
-		if httpErr, ok := err.(HTTPError); ok {
+		if httpErr, ok := err.(utils.HTTPError); ok {
 			writer.WriteHeader(httpErr.Code)
 			_, _ = writer.Write([]byte(httpErr.Message))
 			return

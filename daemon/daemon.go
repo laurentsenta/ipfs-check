@@ -1,4 +1,4 @@
-package main
+package daemon
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aschmahmann/ipfs-check/utils"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
 	logging "github.com/ipfs/go-log"
@@ -22,9 +23,17 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
+
+	"github.com/libp2p/go-libp2p/core/routing"
 )
 
 var log = logging.Logger("ipfs-check-daemon")
+
+type kademlia interface {
+	routing.Routing
+	GetClosestPeers(ctx context.Context, key string) ([]peer.ID, error)
+}
+
 
 type daemon struct {
 	h            host.Host
@@ -52,6 +61,9 @@ func NewDaemon() *daemon {
 		panic(err)
 	}
 
+	bootstrapPeers := dht.GetDefaultBootstrapPeerAddrInfos()
+	log.Debugln("Starting RT with bootstrap peers: ", bootstrapPeers)
+
 	d, err := fullrt.NewFullRT(h, "/ipfs",
 		fullrt.DHTOption(
 			dht.BucketSize(20),
@@ -59,7 +71,7 @@ func NewDaemon() *daemon {
 				"pk":   record.PublicKeyValidator{},
 				"ipns": ipns.Validator{},
 			}),
-			dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...),
+			dht.BootstrapPeers(bootstrapPeers...),
 			dht.Mode(dht.ModeClient),
 		))
 
@@ -83,7 +95,7 @@ func (d *daemon) MustStart() {
 	}
 }
 
-func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
+func (d *daemon) RunCheck(writer http.ResponseWriter, uristr string) error {
 	u, err := url.ParseRequestURI(uristr)
 	if err != nil {
 		return err
@@ -326,12 +338,12 @@ type FindContentOutput struct {
 	Providers          []peer.AddrInfo `json:"providers,omitempty"`
 }
 
-func (d *daemon) runFindContent(ctx context.Context, request *http.Request) (FindContentOutput, error) {
+func (d *daemon) RunFindContent(ctx context.Context, request *http.Request) (FindContentOutput, error) {
 	out := FindContentOutput{}
 
 	cidstr := request.URL.Query().Get("cid")
 	if cidstr == "" {
-		return out, NewHTTPError(http.StatusBadRequest, "missing cid parameter")
+		return out, utils.NewHTTPError(http.StatusBadRequest, "missing cid parameter")
 	}
 
 	c, err := cid.Decode(cidstr)
@@ -361,17 +373,4 @@ func (d *daemon) runFindContent(ctx context.Context, request *http.Request) (Fin
 	out.Providers = providers
 
 	return out, nil
-}
-
-type HTTPError struct {
-	Code    int
-	Message string
-}
-
-func (e HTTPError) Error() string {
-	return fmt.Sprintf("%d: %s", e.Code, e.Message)
-}
-
-func NewHTTPError(code int, message string) HTTPError {
-	return HTTPError{code, message}
 }

@@ -1,4 +1,4 @@
-package main
+package daemon
 
 import (
 	"github.com/libp2p/go-libp2p/core/connmgr"
