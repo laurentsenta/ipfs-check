@@ -7,12 +7,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	mh "github.com/multiformats/go-multihash"
 )
 
 const MyCID = "QmPZ9gcCEpqKTo6aq61g2nXGUhM4iCL3ewB6LDXZCtioEB" // CID from https://docs.ipfs.tech/how-to/command-line-quick-start/#initialize-the-repository
-const SomeLibp2pAddr = "/p2p/12D3KooWNQ4EzGXzP2ben53ZWriXfPZMahfGFt6M3vw95cZhjCEb"
+const SomeLibp2pAddr = "/p2p/12D3KooWGfJ1ueqeVcHcTC8VjFW7QRTuiy174xGYqU115PMkfkBZ"
 
 func setup(t *testing.T) func() {
 	t.Helper()
@@ -51,4 +53,13 @@ func IdentityCID(s string) (cid.Cid, error) {
 
 func RandomCID() (cid.Cid, error) {
 	return IdentityCID(uuid.New().String())
+}
+
+func RandomPeerId() (peer.ID, error) {
+	_, pubKey, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		return "", err
+	}
+
+	return peer.IDFromPublicKey(pubKey)
 }

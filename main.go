@@ -46,6 +46,11 @@ func main() {
 		outputJSONOrErr(writer, out, err)
 	})
 
+	http.HandleFunc("/find-peer", func(writer http.ResponseWriter, request *http.Request) {
+		out, err := daemon.RunFindPeer(request.Context(), request)
+		outputJSONOrErr(writer, out, err)
+	})
+
 	err = http.Serve(l, nil)
 	if err != nil {
 		panic(err)
